@@ -136,7 +136,7 @@ td.fc, th.fc { text-align: right; width: 1%; }
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <script>
 // Version affichée en bas du widget : à incrémenter à chaque modification
-var VERSION = { num: "1.3.0", date: "24/11/2026" };
+var VERSION = { num: "1.4.0", date: "24/11/2026" };
 
 var COL = {
   produit: "Produit", homolDeb: "Debut_de_validite_d_homologation", users: "", dir: "Direction_metier", statut: "Statut_actuel", dept: "Departement_SDPC", crit: "Criticite",
@@ -573,13 +573,42 @@ function detectUsers() {
 }
 function usersVals() {
   var v = uniq(COL.users);
+  if (CHOICES[COL.users]) { return v; }
   v.sort(function (a, b) { return (usersRank(a) - usersRank(b)) || (a < b ? -1 : 1); });
   return v;
 }
 function uniq(c) {
   var s = {}, o = [], i, t;
   for (i = 0; i < ALL.length; i++) { t = T(ALL[i], c); if (t !== "" && !s[t]) { s[t] = true; o.push(t); } }
-  return o.sort();
+  return sortChoices(c, o);
+}
+// Ordre des options défini dans la colonne Choice / Choice List de Grist (lu dans les métadonnées du document)
+var CHOICES = {}, CHOICES_OK = false, CHOICES_LOADING = false;
+function sortChoices(c, vals) {
+  var ch = CHOICES[c];
+  return vals.sort(function (a, b) {
+    var ia = ch ? ch.indexOf(a) : -1, ib = ch ? ch.indexOf(b) : -1;
+    if (ia !== ib) { return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib); }
+    return a.localeCompare(b, "fr");
+  });
+}
+function loadChoices() {
+  var tid;
+  return Promise.resolve(grist.selectedTable && grist.selectedTable.getTableId ? grist.selectedTable.getTableId() : grist.getSelectedTableId()).then(function (t) {
+    tid = t;
+    return Promise.all([grist.docApi.fetchTable("_grist_Tables"), grist.docApi.fetchTable("_grist_Tables_column")]);
+  }).then(function (res) {
+    var tb = res[0], cl = res[1], ref = tb.id[tb.tableId.indexOf(tid)], i, o;
+    for (i = 0; i < cl.id.length; i++) {
+      if (cl.parentId[i] !== ref || !cl.widgetOptions[i]) { continue; }
+      try { o = JSON.parse(cl.widgetOptions[i]); } catch (e) { o = null; }
+      if (o && Array.isArray(o.choices)) { CHOICES[cl.colId[i]] = o.choices; }
+    }
+    CHOICES_OK = true;
+  }).catch(function (e) {
+    // Sans "accès complet au document", les métadonnées ne sont pas lisibles : on garde l'ordre alphabétique
+    if (window.console) { console.warn("Ordre des choix Grist indisponible :", e && e.message ? e.message : e); }
+  });
 }
 var MS = [["users", "Utilisateurs"], ["dept", "Départements"], ["crit", "Criticités"], ["strat", "Stratégique"]];
 function msVals(k) {
@@ -651,6 +680,7 @@ try {
   grist.ready();
   grist.onRecords(function (records) {
     try { ALL = records || []; SC = scaleOf(COL.compl); SR = scaleOf(COL.rgaa); detectUsers(); buildSelects(); render(); } catch (e) { showError(e.message); }
+    if (!CHOICES_OK && !CHOICES_LOADING) { CHOICES_LOADING = true; loadChoices().then(function () { CHOICES_LOADING = false; if (CHOICES_OK) { buildSelects(); } }); }
   });
 } catch (e) { showError("Connexion Grist impossible : " + e.message); }
 </script>
