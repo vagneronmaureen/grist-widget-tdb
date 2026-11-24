@@ -200,7 +200,8 @@ function pct(r, c, sc) { return typeof r[c] === "number" ? Math.round(r[c] * sc)
 function scaleOf(c) { var i, mx = 0; for (i = 0; i < ALL.length; i++) { if (typeof ALL[i][c] === "number" && ALL[i][c] > mx) { mx = ALL[i][c]; } } return (mx > 0 && mx <= 1) ? 100 : 1; }
 
 // Règles métier (à ajuster selon vos valeurs)
-function isActive(r) { var s = norm(T(r, COL.statut)); return s !== "" && s.indexOf("decommission") === -1; }
+// Actif = statut renseigné, ni décommissionné ni transféré ("En cours de transfert" reste actif)
+function isActive(r) { var s = norm(T(r, COL.statut)); return s !== "" && s.indexOf("decommission") === -1 && s.indexOf("transfere") === -1; }
 function isStrat(r) { return yesList(r, COL.strat); }
 function isCrit(r) { var s = norm(T(r, COL.crit)); if (s.indexOf("non") === 0) { return false; } return s.indexOf("critique") !== -1 || s.indexOf("essentiel") !== -1; }
 function isObso(r) { return yesList(r, COL.obso) || norm(T(r, COL.statut)).indexOf("decommission") !== -1; }
@@ -278,7 +279,7 @@ function pieHtml(keys, counts, tot, title, fn) {
       sv += '<path d="M70 70 L' + x1 + " " + y1 + " A" + R + " " + R + " 0 " + (f > 0.5 ? 1 : 0) + " 1 " + x2 + " " + y2 + ' Z" fill="' + c + '"' + at + ' class="' + act + '"/>';
       ang = a2;
     }
-    tt += '<span class="pl" data-al="' + (f * 2 * Math.PI).toFixed(4) + '" data-mid="' + mid.toFixed(4) + '" style="color:' + tcol(c) + ";left:" + (items.length === 1 ? 50 : 50 + 62 * R / 140 * 100 / 64 * 0.0 + (0.62 * R * Math.cos(mid)) * 100 / 140).toFixed(2) + "%;top:" + (items.length === 1 ? 50 : 50 + (0.62 * R * Math.sin(mid)) * 100 / 140).toFixed(2) + '%">' + Math.round(f * 100) + "&nbsp;%</span>";
+    tt += '<span class="pl" data-al="' + (f * 2 * Math.PI).toFixed(4) + '" data-mid="' + mid.toFixed(4) + '" style="color:' + tcol(c) + ";left:" + (items.length === 1 ? 50 : 50 + 62 * R / 140 * 100 / 64 * 0.0 + (0.62 * R * Math.cos(mid)) * 100 / 140).toFixed(2) + "%;top:" + (items.length === 1 ? 50 : 50 + (0.62 * R * Math.sin(mid)) * 100 / 140).toFixed(2) + '%">' + items[i][1] + "</span>";
     lg += '<div class="lg' + act + '"' + at + '><i style="background:' + c + '"></i><span class="n">' + esc(items[i][0]) + '</span><span class="c">' + items[i][1] + " · " + Math.round(f * 100) + " %</span></div>";
   }
   return '<div class="pie"><div class="pw"><svg class="psv" viewBox="0 0 140 140" role="img" aria-label="' + esc(title) + '">' + sv + '</svg>' + tt + '</div><div class="lgs">' + lg + "</div></div>";
