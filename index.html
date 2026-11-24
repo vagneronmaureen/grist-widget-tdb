@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tableau de bord SDPC</title>
+<title>Tableau de bord DNUM</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.15.4/dist/dsfr.min.css">
 <style>
 body { margin: 0; padding: 16px; background: var(--background-alt-grey, #f6f6f6); }
@@ -108,7 +108,7 @@ td.fc, th.fc { text-align: right; width: 1%; }
 </style>
 </head>
 <body>
-<h1>Tableau de bord SDPC</h1>
+<h1>Tableau de bord DNUM</h1>
 <div id="ptitle" class="pt"></div>
 <div id="err"></div>
 <div class="tabs" id="tabs"></div>
@@ -179,8 +179,16 @@ function toDate(v) {
   var d, m;
   if (v === null || v === undefined || v === "") { return null; }
   if (v instanceof Date) { return isNaN(v.getTime()) ? null : v; }
-  if (typeof v === "number") { d = new Date(v < 100000000000 ? v * 1000 : v); return isNaN(d.getTime()) ? null : d; }
+  if (typeof v === "number") {
+    d = new Date(v < 100000000000 ? v * 1000 : v);
+    if (isNaN(d.getTime())) { return null; }
+    // Colonne Date Grist = minuit UTC : on garde le jour calendaire, quel que soit le fuseau (Paris, Tahiti...)
+    if (d.getTime() % 86400000 === 0) { return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()); }
+    return d;
+  }
   v = String(v).replace(/^\s+|\s+$/g, "");
+  m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) { return new Date(+m[1], +m[2] - 1, +m[3]); }
   m = v.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})/);
   if (m) { return new Date(+m[3], +m[2] - 1, +m[1]); }
   d = new Date(v);
@@ -501,6 +509,7 @@ function vMaturity(rows) {
 }
 var VIEWS = { overview: vOverview, portfolio: vPortfolio, risks: vRisks, homol: vHomol, direction: vDirection, maturity: vMaturity };
 
+function tabLabel(k) { var i; for (i = 0; i < TABS.length; i++) { if (TABS[i][0] === k) { return TABS[i][1]; } } return ""; }
 function render() {
   try {
     DR = []; TB = {}; TBN = 0;
@@ -509,7 +518,7 @@ function render() {
     document.getElementById("tabs").innerHTML = h;
     document.getElementById("count").textContent = rows.length + " produit(s) sur " + ALL.length;
     document.getElementById("drill").innerHTML = DRILL ? '<span class="fr-badge fr-badge--sm fr-badge--blue-ecume">' + esc(DRILL.label) + " \u2715</span>" : "";
-    document.getElementById("ptitle").textContent = "Onglet : " + (TABS[0][0] === TAB ? TABS[0][1] : TABS[[0, 1, 2, 3, 4].filter(function (k) { return TABS[k][0] === TAB; })[0]][1]) + " - " + fmtDate(new Date());
+    document.getElementById("ptitle").textContent = "Onglet : " + tabLabel(TAB) + " - " + fmtDate(new Date());
     document.getElementById("main").innerHTML = VIEWS[TAB](rows);
     for (i in TB) { if (TB.hasOwnProperty(i)) { drawTable(i); } }
     fitPies();
@@ -532,7 +541,7 @@ function exportCsv() {
   var blob = new Blob(["\ufeff" + l.join("\r\n")], { type: "text/csv;charset=utf-8" });
   var a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "produits_sdpc.csv";
+  a.download = "produits_dnum.csv";
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 function usersOf(r) { return T(r, COL.users); }
