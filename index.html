@@ -89,6 +89,11 @@ text.pt { pointer-events: none; text-anchor: middle; dominant-baseline: central;
 .ver { margin-top: 16px; font-size: .7rem; color: #666; text-align: right; }
 .wip { text-align: center; padding: 48px 16px; }
 .wip-t { font-size: 1.25rem; font-weight: 700; color: #000091; margin: 0 0 8px 0; }
+.kinfo { position: relative; display: inline-flex; vertical-align: -2px; margin-left: 4px; color: #000091; cursor: help; }
+.kinfo:focus { outline: 2px solid #0a76f6; outline-offset: 1px; }
+.ktip { display: none; position: absolute; z-index: 40; left: -8px; top: calc(100% + 6px); width: 300px; background: #fff; color: #3a3a3a; border: 1px solid #ddd; box-shadow: 0 4px 12px rgba(0,0,0,.15); padding: 8px 10px; font-size: .75rem; line-height: 1.5; text-align: left; white-space: normal; cursor: default; }
+.kinfo:hover .ktip, .kinfo:focus .ktip { display: block; }
+@media print { .kinfo { display: none !important; } }
 .pl { position: absolute; transform: translate(-50%, -50%); font-size: 12px; font-weight: 700; line-height: 1; white-space: nowrap; pointer-events: none; }
 </style>
 </head>
@@ -117,7 +122,7 @@ text.pt { pointer-events: none; text-anchor: middle; dominant-baseline: central;
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <script>
 // Version affichée en bas du widget : à incrémenter à chaque modification
-var VERSION = { num: "1.8.1", date: "26/11/2026" };
+var VERSION = { num: "1.8.2", date: "26/11/2026" };
 
 var COL = {
   produit: "Produit", homolDeb: "Debut_de_validite_d_homologation", users: "Volumetrie_utilisateurs_par_an", typo: "Typologie_d_application", dir: "Direction_metier", statut: "Statut_actuel", dept: "Departement_new", crit: "Criticite",
@@ -253,12 +258,24 @@ function passF(r) {
 function cnt(rows, fn) { var n = 0, i; for (i = 0; i < rows.length; i++) { if (fn(rows[i])) { n++; } } return n; }
 function reg(label, fn) { DR.push({ label: label, fn: fn }); return DR.length - 1; }
 function isAct(label) { return DRILL !== null && DRILL.label === label; }
+// Infobulle (survol ou focus clavier) ; title="" évite l'infobulle native « Cliquer pour filtrer » du KPI
+function infoTip(label, text) {
+  return '<span class="kinfo" tabindex="0" role="button" title="" aria-label="Informations sur ' + esc(label) + '">' + ICO.info +
+    '<span class="ktip" role="tooltip">' + esc(text).replace(/\n/g, "<br>") + "</span></span>";
+}
+// Texte de l'infobulle « Produits actifs », construit à partir de la liste de choix du statut
+function activeTip() {
+  var ch = CHOICES[COL.statut] || [], inc = [], exc = [], i;
+  for (i = 0; i < ch.length; i++) { (isActive({ Statut_actuel: ch[i] }) ? inc : exc).push(ch[i]); }
+  if (!ch.length) { return "Produits dont le statut actuel est renseigné, hors décommissionnés et transférés."; }
+  return "Statuts pris en compte :\n• " + inc.join("\n• ") + "\n\nNon comptés : " + exc.join(", ") + " et les produits sans statut.";
+}
 function kpis(rows, items) {
   var h = '<div class="kpis">', i, it, v, a, lab;
   for (i = 0; i < items.length; i++) {
     it = items[i]; a = ""; lab = "KPI : " + it[0];
     if (typeof it[1] === "function") { v = cnt(rows, it[1]); a = ' data-d="' + reg(lab, it[1]) + '" title="Cliquer pour filtrer"'; } else { v = it[1]; }
-    h += '<div class="kpi' + (it[2] ? " w" : "") + (isAct(lab) ? " act" : "") + '"' + a + '><div class="v">' + v + '</div><div class="l">' + esc(it[0]) + "</div></div>";
+    h += '<div class="kpi' + (it[2] ? " w" : "") + (isAct(lab) ? " act" : "") + '"' + a + '><div class="v">' + v + '</div><div class="l">' + esc(it[0]) + (it[3] ? infoTip(it[0], it[3]) : "") + "</div></div>";
   }
   return h + "</div>";
 }
@@ -297,6 +314,7 @@ function pieHtml(keys, counts, tot, title, fn) {
 }
 var ICO = {
   bar: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="1.75" y="8.5" width="3" height="5.75"/><rect x="6.5" y="2.5" width="3" height="11.75"/><rect x="11.25" y="5.5" width="3" height="8.75"/></svg>',
+  info: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.25"/><path d="M8 7.25v4"/><circle cx="8" cy="4.9" r=".4" fill="currentColor"/></svg>',
   pie: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.25"/><path d="M8 8V1.75M8 8l4.4 4.4"/></svg>'
 };
 function vbtn(key, v, mode) {
@@ -377,7 +395,7 @@ function volOrder() {
   return ch.length ? ch.concat(["N/A"]) : null;
 }
 function vOverview(rows) {
-  var h = kpis(rows, [["Produits dans la sélection", rows.length], ["Produits actifs", isActive], ["Complétion moyenne", avgC(rows)]]) +
+  var h = kpis(rows, [["Produits dans la sélection", rows.length], ["Produits actifs", isActive, 0, activeTip()], ["Complétion moyenne", avgC(rows)]]) +
     '<div class="cols">' + bars("Produits par statut actuel", rows, tx(COL.statut)) + bars("Produits par département", rows, deptOf) +
     bars("Produits par typologie", rows, multi(COL.typo));
   if (COL.users !== "") { h += bars("Produits par volumétrie d'utilisateurs", rows, tx(COL.users), volOrder()); }
@@ -564,6 +582,7 @@ function bind() {
   document.getElementById("main").onclick = function (e) {
     var n = e.target, d;
     while (n && n !== this) {
+      if (String(n.className).indexOf("kinfo") !== -1) { return; }
       if (n.getAttribute && n.getAttribute("data-a") === "view") { CS[n.getAttribute("data-k")] = n.getAttribute("data-v"); render(); return; }
       if (n.getAttribute && n.getAttribute("data-d") !== null) {
         d = DR[+n.getAttribute("data-d")];
