@@ -87,8 +87,9 @@ text.pt { pointer-events: none; text-anchor: middle; dominant-baseline: central;
 .pw::before { content: ""; display: block; padding-top: 100%; }
 .pw svg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
 .ver { margin-top: 16px; font-size: .7rem; color: #666; text-align: right; }
-.wip { text-align: center; padding: 48px 16px; }
-.wip-t { font-size: 1.25rem; font-weight: 700; color: #000091; margin: 0 0 8px 0; }
+.wipb { background: #fff; border-left: 4px solid #000091; padding: 8px 12px; margin-bottom: 12px; font-size: .85rem; color: #000091; font-weight: 700; }
+.wipb span { font-weight: 400; color: #3a3a3a; }
+h2.sec { font-size: 1rem; margin: 4px 0 8px 0; }
 .kinfo { position: relative; display: inline-flex; vertical-align: -2px; margin-left: 4px; color: #000091; cursor: help; }
 .kinfo:focus { outline: 2px solid #0a76f6; outline-offset: 1px; }
 .ktip { display: none; position: absolute; z-index: 40; left: -8px; top: calc(100% + 6px); width: 300px; background: #fff; color: #3a3a3a; border: 1px solid #ddd; box-shadow: 0 4px 12px rgba(0,0,0,.15); padding: 8px 10px; font-size: .75rem; line-height: 1.5; text-align: left; white-space: normal; cursor: default; }
@@ -104,9 +105,9 @@ text.pt { pointer-events: none; text-anchor: middle; dominant-baseline: central;
 <div id="err"></div>
 <div class="tabs" id="tabs"></div>
 <div class="filters" id="filters">
-  <details class="ms" id="ms-users"></details>
   <details class="ms" id="ms-sdir"></details>
   <details class="ms" id="ms-dept"></details>
+  <details class="ms" id="ms-users"></details>
   <button type="button" class="fr-btn fr-btn--secondary fr-btn--sm" id="f-reset">Réinitialiser</button>
   <span id="drill" title="Cliquer pour retirer ce filtre"></span>
   <div class="rt">
@@ -123,14 +124,14 @@ text.pt { pointer-events: none; text-anchor: middle; dominant-baseline: central;
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <script>
 // Version affichée en bas du widget : à incrémenter à chaque modification
-var VERSION = { num: "1.9.0", date: "26/11/2026" };
+var VERSION = { num: "1.10.0", date: "26/11/2026" };
 
 var COL = {
   produit: "Produit", homolDeb: "Debut_de_validite_d_homologation", users: "Volumetrie_utilisateurs_par_an", typo: "Typologie_d_application", dir: "Direction_metier", statut: "Statut_actuel", dept: "Departement_new", crit: "Criticite",
   strat: "Produit_strategique", compl: "Taux_de_completion", maj: "Date_de_derniere_mise_a_jour",
   majAlt: "Date_de_mise_a_jour", vides: "Nombre_de_champs_critiques_vides",
   homol: "Statut_d_homologation_de_securite", homolFin: "Fin_de_validite_d_homologation",
-  rgaa: "RGAA_Taux_de_conformite", pca: "Inscription_au_PCA", obso: "Obsolescence",
+  rgaa: "RGAA_Taux_de_conformite", rgaaDecl: "RGAA_Declaration_reglementaire", rgaaDate: "RGAA_Date_de_declaration", pca: "Inscription_au_PCA", obso: "Obsolescence",
   c26: "Cible_RenovSI_2026", c27: "Cible_RenovSI_2027", e26: "RenovSI_2026_Etat",
   pic: "tech_PIC_etat_de_la_migration",
   vis: "Vision_strategie", usr: "Connaissance_utilisateurs_design",
@@ -166,9 +167,10 @@ function filled(r, c) { return toList(r[c]).length > 0; }
 function isNo(s) { s = norm(s); return s === "non" || s === "aucun" || s === "false" || s === "n/a"; }
 function yesList(r, c) { var l = toList(r[c]), i; for (i = 0; i < l.length; i++) { if (!isNo(l[i])) { return true; } } return false; }
 
-// Dates "bouche-trou" (01/01/1900, 01/01/1970, 01/01/2000...) : toute date antérieure au 01/01/2001 est considérée comme vide
+// Dates "bouche-trou" (01/01/1900, 01/01/1970, 01/01/2000, 01/01/2999...) : dates antérieures au 01/01/2001 ou postérieures à 2100 considérées comme vides
 var DATE_MIN = new Date(2001, 0, 1);
-function toDate(v) { var d = toDateRaw(v); return (d !== null && d < DATE_MIN) ? null : d; }
+var DATE_MAX = new Date(2100, 0, 1);
+function toDate(v) { var d = toDateRaw(v); return (d !== null && (d < DATE_MIN || d >= DATE_MAX)) ? null : d; }
 function toDateRaw(v) {
   var d, m;
   if (v === null || v === undefined || v === "") { return null; }
@@ -486,11 +488,43 @@ function vHomol(rows) {
     bars("Études en cours par statut", sel(actif(etudeActive), rows), function (r) { return etu(r).statut; }, ["Demandée", "À lancer", "En cours", "Finalisation"]) +
     bars("Études par démarche", sel(actif(etudeActive), rows), function (r) { return etu(r).demarche; }, ["Simplifiée", "Intermédiaire", "Renforcée", "À définir"]) + "</div>";
 }
-// Pages en préparation : contenu remplacé par un message
-function vBuild() {
-  return '<div class="box wip"><p class="wip-t">\u2699\ufe0f En cours de construction</p><p class="note">Cette page sera disponible dans une prochaine version du tableau de bord.</p></div>';
+// Pages en préparation : bandeau en haut de page
+function wipBanner() { return '<div class="wipb">\u2699\ufe0f En cours de construction <span>: cette page peut encore évoluer.</span></div>'; }
+function sec(t) { return '<h2 class="sec">' + esc(t) + "</h2>"; }
+function eqC(c, v) { return actif(function (r) { return T(r, c) === v; }); }
+
+// RGAA (périmètre : produits actifs)
+function rgaaP(r) { var p = pct(r, COL.rgaa, SR); return (p === null || p < 0) ? null : p; } // valeur négative = non mesuré
+function rgaaIn(a, b) { return actif(function (r) { var p = rgaaP(r); return p !== null && p >= a && p <= b; }); }
+// Ancienneté de la déclaration en années (dates futures ignorées)
+function declAge(r) { var d = toDate(r[COL.rgaaDate]), a; if (!d) { return null; } a = (new Date() - d) / 31557600000; return a < 0 ? null : a; }
+function declIn(a, b) { return actif(function (r) { var x = declAge(r); return x !== null && x >= a && x < b; }); }
+function vRgaa(rows) {
+  var act = sel(isActive, rows), mes = sel(function (r) { return rgaaP(r) !== null; }, act), s = 0, i, lab = { "oui": "Avec déclaration", "non": "Sans déclaration", "n/a": "Non applicable" }, dec = [], ch;
+  for (i = 0; i < mes.length; i++) { s += rgaaP(mes[i]); }
+  ch = CHOICES[COL.rgaaDecl] || ["✅ Oui", "❌ Non", "N/A"];
+  for (i = 0; i < ch.length; i++) { dec.push([lab[norm(ch[i]).replace(/[^a-z\/]/g, "")] || ch[i], eqC(COL.rgaaDecl, ch[i]), /non/i.test(ch[i]) && !/n\/a/i.test(ch[i]) ? 1 : 0, "Valeur Grist : « " + ch[i] + " »"]); }
+  dec.sort(function (a, b) { var o = ["Avec déclaration", "Sans déclaration", "Non applicable"]; return o.indexOf(a[0]) - o.indexOf(b[0]); });
+  return wipBanner() + '<p class="note" style="margin:0 0 8px">Périmètre : produits actifs (' + act.length + ").</p>" +
+    sec("Déclaration d'accessibilité") + kpis(rows, dec) +
+    sec("Taux de conformité") + kpis(rows, [["Taux moyen", mes.length ? Math.round(s / mes.length) + " %" : "-", 0, "Moyenne des taux de conformité renseignés (" + mes.length + " produits)."],
+      ["Totalement conformes (100 %)", rgaaIn(100, 100)], ["Partiellement conformes (50 à 99 %)", rgaaIn(50, 99)], ["Non conformes (moins de 50 %)", rgaaIn(0, 49), 1]]) +
+    sec("Date de déclaration") + kpis(rows, [["Moins d'un an", declIn(0, 1)], ["Entre 1 et 3 ans", declIn(1, 3)], ["Plus de 3 ans", declIn(3, 1e9), 1, "Ancienneté calculée à partir de la date de déclaration RGAA ; les dates futures ne sont pas comptées."]]);
 }
-var VIEWS = { overview: vOverview, direction: vDirection, homol: vHomol, rgaa: vBuild, maturity: vBuild };
+
+// Maturité produit : une ligne de tuiles par dimension (niveaux de la liste de choix Grist)
+var DIMS = [["Vision & stratégie", "vis"], ["Connaissance utilisateurs & design", "usr"], ["Mesure d'impact", "imp"], ["Delivery & itération", "del"]];
+function vMaturity(rows) {
+  var act = sel(isActive, rows), h = "", i, j, c, ch, it, ev;
+  ev = cnt(act, function (r) { for (var k = 0; k < DIMS.length; k++) { if (T(r, COL[DIMS[k][1]]) !== "") { return true; } } return false; });
+  for (i = 0; i < DIMS.length; i++) {
+    c = COL[DIMS[i][1]]; ch = CHOICES[c] || ["Niveau 0 - non adressé", "Niveau 1 - en cours", "Niveau 2 - maîtrisé"]; it = [];
+    for (j = 0; j < ch.length; j++) { it.push([ch[j], eqC(c, ch[j]), /niveau 0/i.test(ch[j]) ? 1 : 0]); }
+    h += sec(DIMS[i][0]) + kpis(rows, it);
+  }
+  return wipBanner() + '<p class="note" style="margin:0 0 8px">Périmètre : produits actifs (' + act.length + "), dont " + ev + " avec au moins une dimension renseignée.</p>" + h;
+}
+var VIEWS = { overview: vOverview, direction: vDirection, homol: vHomol, rgaa: vRgaa, maturity: vMaturity };
 
 function tabLabel(k) { var i; for (i = 0; i < TABS.length; i++) { if (TABS[i][0] === k) { return TABS[i][1]; } } return ""; }
 function render() {
@@ -585,7 +619,7 @@ function loadChoices() {
     if (window.console) { console.warn("Ordre des choix Grist indisponible :", e && e.message ? e.message : e); }
   });
 }
-var MS = [["users", "Utilisateurs"], ["sdir", "Sous-directions"], ["dept", "Départements"]];
+var MS = [["sdir", "Sous-directions"], ["dept", "Départements"], ["users", "Utilisateurs"]];
 function distinct(fn, keep) {
   var s = {}, o = [], i, t;
   for (i = 0; i < ALL.length; i++) { if (keep && !keep(ALL[i])) { continue; } t = fn(ALL[i]); if (t !== "" && !s[t]) { s[t] = true; o.push(t); } }
