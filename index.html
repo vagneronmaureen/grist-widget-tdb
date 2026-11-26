@@ -94,7 +94,6 @@ text.pt { pointer-events: none; text-anchor: middle; dominant-baseline: central;
 <div id="err"></div>
 <div class="tabs" id="tabs"></div>
 <div class="filters" id="filters">
-  <input type="text" class="fr-input" id="f-q" placeholder="Rechercher un produit">
   <details class="ms" id="ms-users"></details>
   <details class="ms" id="ms-sdir"></details>
   <details class="ms" id="ms-dept"></details>
@@ -114,7 +113,7 @@ text.pt { pointer-events: none; text-anchor: middle; dominant-baseline: central;
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <script>
 // Version affichée en bas du widget : à incrémenter à chaque modification
-var VERSION = { num: "1.6.0", date: "26/11/2026" };
+var VERSION = { num: "1.6.1", date: "26/11/2026" };
 
 var COL = {
   produit: "Produit", homolDeb: "Debut_de_validite_d_homologation", users: "", dir: "Direction_metier", statut: "Statut_actuel", dept: "Departement_new", crit: "Criticite",
@@ -131,7 +130,7 @@ var COL = {
 var CFG = { complFaible: 50, rgaaSeuil: 75, joursMaj: 180, moisHomol: 6 };
 
 var TABS = [["overview", "Vue d'ensemble"], ["direction", "Vue par direction métier"], ["portfolio", "Portefeuille"], ["risks", "Risques & conformité"], ["homol", "Homologations"], ["maturity", "Maturité & qualité"]];
-function emptyF() { return { q: "", users: [], sdir: [], dept: [] }; }
+function emptyF() { return { users: [], sdir: [], dept: [] }; }
 var ALL = [], F = emptyF(), TAB = "overview", SC = 1, SR = 1, DR = [], DRILL = null;
 
 function showError(m) { var e = document.getElementById("err"); e.style.display = "block"; e.textContent = "Erreur : " + m; }
@@ -191,8 +190,12 @@ function scaleOf(c) { var i, mx = 0; for (i = 0; i < ALL.length; i++) { if (type
 var DEPT_TABLE = "Liste_des_departements_et_sous_directions", DEPTS = null, DEPT_ORD = [], SDIR_ORD = [];
 function deptInfo(r) {
   var v = r[COL.dept];
-  if (v && typeof v === "object" && !Array.isArray(v)) {
-    return { lab: String(v.Direction_Sous_direction_Departement || ""), sd: [v.Direction, v.Sous_direction].filter(function (x) { return x; }).join("/") };
+  if (Array.isArray(v) && v[0] === "R") { v = v[2]; }
+  if (v && typeof v === "object") {
+    if (v.Direction_Sous_direction_Departement) {
+      return { lab: String(v.Direction_Sous_direction_Departement), sd: [v.Direction, v.Sous_direction].filter(function (x) { return x; }).join("/") };
+    }
+    v = v.id || v.rowId || 0;
   }
   if (typeof v !== "number" || v <= 0) { return null; }
   return (DEPTS && DEPTS[v]) ? DEPTS[v] : { lab: "Département n°" + v, sd: "" };
@@ -256,7 +259,6 @@ var DIMS = [["Vision & stratégie", "vis"], ["Connaissance utilisateurs & design
 function matInc(r) { var i; for (i = 0; i < DIMS.length; i++) { if (!filled(r, COL[DIMS[i][1]])) { return true; } } return false; }
 
 function passF(r) {
-  if (F.q !== "" && norm(T(r, COL.produit)).indexOf(norm(F.q)) === -1) { return false; }
   if (F.users.length && F.users.indexOf(usersOf(r)) === -1) { return false; }
   if (F.sdir.length && F.sdir.indexOf(sdirOf(r)) === -1) { return false; }
   if (F.dept.length && F.dept.indexOf(deptOf(r)) === -1) { return false; }
@@ -560,7 +562,6 @@ function buildOne(k) {
 }
 function buildSelects() { var i; for (i = 0; i < MS.length; i++) { buildOne(MS[i][0]); } updateMs(); }
 function bind() {
-  document.getElementById("f-q").oninput = function () { F.q = this.value; render(); };
   document.getElementById("filters").onchange = function (e) {
     var k = e.target.getAttribute("data-f"), a = [], i, bx;
     if (!k) { return; }
@@ -580,7 +581,7 @@ function bind() {
     var d = document.getElementsByClassName("ms"), i;
     for (i = 0; i < d.length; i++) { if (!d[i].contains(e.target)) { d[i].removeAttribute("open"); } }
   };
-  document.getElementById("f-reset").onclick = function () { DRILL = null; F = emptyF(); document.getElementById("f-q").value = ""; buildSelects(); render(); };
+  document.getElementById("f-reset").onclick = function () { DRILL = null; F = emptyF(); buildSelects(); render(); };
   document.getElementById("main").onclick = function (e) {
     var n = e.target, d;
     while (n && n !== this) {
@@ -614,7 +615,7 @@ try {
     if (META_STATE === 1) { return; }
     META_STATE = 1;
     Promise.all([loadChoices(), loadDepts()]).then(function () { META_STATE = 2; refresh(); });
-  });
+  }, { includeColumns: "normal", expandRefs: false });
 } catch (e) { showError("Connexion Grist impossible : " + e.message); }
 </script>
 </body>
