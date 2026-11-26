@@ -94,6 +94,7 @@ text.pt { pointer-events: none; text-anchor: middle; dominant-baseline: central;
 .ktip { display: none; position: absolute; z-index: 40; left: -8px; top: calc(100% + 6px); width: 300px; background: #fff; color: #3a3a3a; border: 1px solid #ddd; box-shadow: 0 4px 12px rgba(0,0,0,.15); padding: 8px 10px; font-size: .75rem; line-height: 1.5; text-align: left; white-space: normal; cursor: default; }
 .kinfo:hover .ktip, .kinfo:focus .ktip { display: block; }
 @media print { .kinfo { display: none !important; } }
+.kpi .s { font-size: .75rem; color: #3a3a3a; margin-top: 2px; }
 .pl { position: absolute; transform: translate(-50%, -50%); font-size: 12px; font-weight: 700; line-height: 1; white-space: nowrap; pointer-events: none; }
 </style>
 </head>
@@ -122,7 +123,7 @@ text.pt { pointer-events: none; text-anchor: middle; dominant-baseline: central;
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <script>
 // Version affichée en bas du widget : à incrémenter à chaque modification
-var VERSION = { num: "1.8.2", date: "26/11/2026" };
+var VERSION = { num: "1.9.0", date: "26/11/2026" };
 
 var COL = {
   produit: "Produit", homolDeb: "Debut_de_validite_d_homologation", users: "Volumetrie_utilisateurs_par_an", typo: "Typologie_d_application", dir: "Direction_metier", statut: "Statut_actuel", dept: "Departement_new", crit: "Criticite",
@@ -236,10 +237,50 @@ function isStrat(r) { return yesList(r, COL.strat); }
 function isCrit(r) { var s = norm(T(r, COL.crit)); if (s.indexOf("non") === 0) { return false; } return s.indexOf("critique") !== -1 || s.indexOf("essentiel") !== -1; }
 // Statut d'homologation : comparaison aux valeurs exactes de la liste de choix Grist
 function homolS(r) { return norm(T(r, COL.homol)).replace(/^\s+|\s+$/g, ""); }
-function homolOk(r) { return homolS(r) === "homologuee"; }
-function homolEnCours(r) { return homolS(r) === "homologation en cours"; }
-function homolNonEngagee(r) { return homolS(r).indexOf("homologation non engagee") === 0; }
-function homolNA(r) { return homolS(r) === "n/a"; }
+// Études d'homologation (table Etudes_Homologations) : pour chaque produit, dernière étude non abandonnée
+var ETU_TABLE = "Etudes_Homologations", ETU = {};
+function loadEtudes() {
+  return Promise.resolve(grist.docApi.fetchTable(ETU_TABLE)).then(function (t) {
+    var o = {}, i, pid, st, e, k, idx = [];
+    for (i = 0; i < t.id.length; i++) { idx.push(i); }
+    // Tri chronologique : date de demande, puis ordre de création
+    idx.sort(function (a, b) { return ((t.Date_de_la_demande_d_etude || [])[a] || 0) - ((t.Date_de_la_demande_d_etude || [])[b] || 0) || t.id[a] - t.id[b]; });
+    for (k = 0; k < idx.length; k++) {
+      i = idx[k]; pid = t.Produit[i]; st = norm(t.Statut[i] || "");
+      if (!pid || st.indexOf("abandon") !== -1) { continue; }
+      e = o[pid] || (o[pid] = { statut: "", active: false, homol: false, fin: null, demarche: "" });
+      e.statut = String(t.Statut[i] || "").replace(/^[^A-Za-zÀ-ÿ]+/, "");
+      e.demarche = t.Demarche_d_homologation ? t.Demarche_d_homologation[i] || "" : "";
+      e.active = st.indexOf("homologue") === -1;
+      if (!e.active) { e.homol = true; e.fin = t.Date_fin_homologation ? t.Date_fin_homologation[i] : null; }
+    }
+    ETU = o;
+  }).catch(function (e) {
+    if (window.console) { console.warn("Table des études d'homologation illisible :", e && e.message ? e.message : e); }
+  });
+}
+function etu(r) { return ETU[r.id] || null; }
+// Étude en cours = dernière étude demandée, à lancer, en cours ou en finalisation
+function etudeActive(r) { var e = etu(r); return e !== null && e.active; }
+// Statut consolidé : la table des études prime sur la fiche produit, sauf qu'un produit homologué le reste pendant sa réhomologation
+function homolC(r) {
+  var s = homolS(r), e = etu(r), base = "";
+  if (s === "homologuee") { base = "Homologuée"; }
+  else if (s === "homologation en cours") { base = "En cours d'homologation"; }
+  else if (s === "analyse de risques uniquement") { base = "Analyse de risques uniquement"; }
+  else if (s.indexOf("homologation non engagee") === 0) { base = "Non engagée"; }
+  else if (s === "n/a") { base = "Non applicable"; }
+  if (e === null) { return base; }
+  if (e.homol || base === "Homologuée") { return "Homologuée"; }
+  if (e.active) { return /lancer|demand/i.test(norm(e.statut)) ? "À lancer" : "En cours d'homologation"; }
+  return base;
+}
+function rehomol(r) { return homolC(r) === "Homologuée" && etudeActive(r); }
+// Date de fin : la plus récente entre la fiche produit et la dernière étude homologuée
+function finC(r) {
+  var a = toDate(r[COL.homolFin]), e = etu(r), b = e && e.fin ? toDate(e.fin) : null;
+  return (a && b) ? (a > b ? a : b) : (a || b);
+}
 function cible26(r) { return yesList(r, COL.c26); }
 function cible27(r) { return yesList(r, COL.c27); }
 function sansTraj(r) { return !cible26(r) && !cible27(r); }
@@ -271,11 +312,13 @@ function activeTip() {
   return "Statuts pris en compte :\n• " + inc.join("\n• ") + "\n\nNon comptés : " + exc.join(", ") + " et les produits sans statut.";
 }
 function kpis(rows, items) {
-  var h = '<div class="kpis">', i, it, v, a, lab;
+  var h = '<div class="kpis">', i, it, v, a, lab, sub;
   for (i = 0; i < items.length; i++) {
     it = items[i]; a = ""; lab = "KPI : " + it[0];
     if (typeof it[1] === "function") { v = cnt(rows, it[1]); a = ' data-d="' + reg(lab, it[1]) + '" title="Cliquer pour filtrer"'; } else { v = it[1]; }
-    h += '<div class="kpi' + (it[2] ? " w" : "") + (isAct(lab) ? " act" : "") + '"' + a + '><div class="v">' + v + '</div><div class="l">' + esc(it[0]) + (it[3] ? infoTip(it[0], it[3]) : "") + "</div></div>";
+    sub = (it[4] && typeof it[1] === "function") ? it[4](sel(it[1], rows)) : "";
+    h += '<div class="kpi' + (it[2] ? " w" : "") + (isAct(lab) ? " act" : "") + '"' + a + '><div class="v">' + v + '</div><div class="l">' + esc(it[0]) + (it[3] ? infoTip(it[0], it[3]) : "") + "</div>" +
+      (sub ? '<div class="s">' + esc(sub) + "</div>" : "") + "</div>";
   }
   return h + "</div>";
 }
@@ -387,7 +430,7 @@ function avgC(rows) {
   for (i = 0; i < rows.length; i++) { p = pct(rows[i], COL.compl, SC); if (p !== null) { s += p; n++; } }
   return n ? Math.round(s / n) + " %" : "-";
 }
-function dFin(r) { return fmtDate(toDate(r[COL.homolFin])); }
+function dFin(r) { return fmtDate(finC(r)); }
 function mkF(c) { return function (r) { return !filled(r, c); }; }
 // Volumétrie : ordre croissant de la liste de choix Grist, "N/A" placé en fin de liste
 function volOrder() {
@@ -407,9 +450,9 @@ function vDirection(rows) {
   return kpis(rows, [["Produits dans la sélection", rows.length], ["Directions métier", nb], ["Produits sans direction renseignée", mkF(COL.dir), 1], ["Complétion moyenne", avgC(rows)]]) +
     '<div class="cols">' + bars("Produits par direction métier", rows, dirs) + bars("Critiques ou essentiels par direction", sel(isCrit, rows), dirs) + "</div>";
 }
-function joursRest(r) { var d = toDate(r[COL.homolFin]); return d === null ? null : Math.round((d - new Date()) / 86400000); }
+function joursRest(r) { var d = finC(r); return d === null ? null : Math.round((d - new Date()) / 86400000); }
 function expir(r) { var j = joursRest(r); return j !== null && j < 0; }
-function ech(n) { return function (r) { var j = joursRest(r); return j !== null && j >= 0 && j <= n; }; }
+function ech(a, b) { return function (r) { var j = joursRest(r); return j !== null && j > a && j <= b; }; }
 function tranche(r) {
   var j = joursRest(r);
   if (j === null) { return "Non renseignée"; }
@@ -419,15 +462,29 @@ function tranche(r) {
   if (j <= 365) { return "6-12 mois"; }
   return "Plus de 12 mois";
 }
-// Critiques/essentiels à risque : non homologués ou expirés, hors statut N/A (homologation non applicable)
-function critRisque(r) { return isCrit(r) && !homolNA(r) && (!homolOk(r) || expir(r)); }
+// Vue Homologations : périmètre = produits actifs ; statuts exclusifs (statut consolidé)
+function actif(fn) { return function (r) { return isActive(r) && fn(r); }; }
+function isC(v) { return actif(function (r) { return homolC(r) === v; }); }
+function avecEtude(rs) { var n = cnt(rs, etudeActive); return n ? "dont " + n + " avec étude en cours" : ""; }
+var TIP_C = "Statut consolidé : la dernière étude de la table Études d'homologation prime sur la fiche produit. " +
+  "Un produit homologué qui fait l'objet d'une nouvelle étude reste compté comme homologué.";
+var TIP_E = "Date de fin la plus récente entre la fiche produit et la dernière étude homologuée.\n" +
+  "Étude en cours : étude demandée, à lancer, en cours ou en finalisation.";
 function vHomol(rows) {
-  var hasFin = function (r) { return toDate(r[COL.homolFin]) !== null; };
-  return kpis(rows, [["Produits homologués", homolOk], ["Homologations en cours", homolEnCours], ["Homologations non engagées", homolNonEngagee, 1], ["Homologations expirées", expir, 1], ["Échéance sous 3 mois", ech(90), 1],
-    ["Échéance sous 6 mois", ech(180), 1], ["Sans date de fin", function (r) { return !hasFin(r); }, 1], ["Statut non renseigné", mkF(COL.homol), 1], ["Critiques non homologués ou expirés", critRisque, 1]]) +
-    '<div class="cols">' + bars("Statut d'homologation", rows, tx(COL.homol)) +
-    bars("Échéances par tranche de validité", rows, tranche, ["Expirée", "0-3 mois", "3-6 mois", "6-12 mois", "Plus de 12 mois", "Non renseignée"]) +
-    bars("Critiques ou essentiels : statut", sel(isCrit, rows), tx(COL.homol)) + "</div>";
+  var act = sel(isActive, rows), hasFin = actif(function (r) { return finC(r) !== null; }), ordT = ["Expirée", "0-3 mois", "3-6 mois", "6-12 mois", "Plus de 12 mois"];
+  if (CS["homol|Études par démarche"] === undefined) { CS["homol|Études par démarche"] = "pie"; }
+  return '<p class="note" style="margin:0 0 8px">Périmètre : produits actifs (' + act.length + ").</p>" +
+    kpis(rows, [["Applications homologuées", isC("Homologuée"), 0, TIP_C, function (rs) { var n = cnt(rs, rehomol); return n ? "dont " + n + " en cours de réhomologation" : ""; }],
+      ["En cours d'homologation", isC("En cours d'homologation"), 0, TIP_C], ["À lancer", isC("À lancer"), 0, TIP_C],
+      ["Analyse de risques uniquement", isC("Analyse de risques uniquement")],
+      ["Non engagées", isC("Non engagée"), 0, "Regroupe « Homologation non engagée » et « Homologation non engagée (en attente de la migration du SI) »."],
+      ["Non applicable", isC("Non applicable")]]) +
+    kpis(rows, [["Homologations expirées", actif(expir), 1, TIP_E, avecEtude], ["Échéance sous 3 mois", actif(ech(-1, 90)), 1, TIP_E, avecEtude],
+      ["Échéance entre 3 et 6 mois", actif(ech(90, 180)), 1, TIP_E, avecEtude]]) +
+    '<div class="cols">' + bars("Échéances de fin d'homologation", sel(hasFin, rows), tranche, ordT) +
+    bars("Applications homologuées par département", sel(isC("Homologuée"), rows), deptOf) +
+    bars("Études en cours par statut", sel(actif(etudeActive), rows), function (r) { return etu(r).statut; }, ["Demandée", "À lancer", "En cours", "Finalisation"]) +
+    bars("Études par démarche", sel(actif(etudeActive), rows), function (r) { return etu(r).demarche; }, ["Simplifiée", "Intermédiaire", "Renforcée", "À définir"]) + "</div>";
 }
 // Pages en préparation : contenu remplacé par un message
 function vBuild() {
@@ -456,7 +513,7 @@ function exportCsv() {
   var rows = sel(passF, ALL), i, j, l = [], line,
     cols = [["Produit", P], ["Statut actuel", tx(COL.statut)], ["Sous-direction", sdirOf], ["Département", deptOf], ["Criticité", tx(COL.crit)],
       ["Stratégique", function (r) { return isStrat(r) ? "Oui" : "Non"; }], ["Complétion (%)", function (r) { var p = pct(r, COL.compl, SC); return p === null ? "" : p; }],
-      ["Dernière mise à jour", function (r) { return fmtDate(majDate(r)); }], ["Homologation", tx(COL.homol)], ["Fin d'homologation", dFin],
+      ["Dernière mise à jour", function (r) { return fmtDate(majDate(r)); }], ["Homologation (fiche produit)", tx(COL.homol)], ["Homologation (consolidée)", homolC], ["Étude en cours", function (r) { return etudeActive(r) ? etu(r).statut : ""; }], ["Fin d'homologation", dFin],
       ["RGAA (%)", function (r) { var p = pct(r, COL.rgaa, SR); return p === null ? "" : p; }], ["PCA", tx(COL.pca)], ["Obsolescence", tx(COL.obso)],
       ["Cible RenovSI 2026", lst(COL.c26)], ["Cible RenovSI 2027", lst(COL.c27)], ["État RenovSI 2026", tx(COL.e26)], ["État PIC", tx(COL.pic)],
       ["Vision & stratégie", tx(COL.vis)], ["Connaissance utilisateurs & design", tx(COL.usr)], ["Mesure d'impact", tx(COL.imp)], ["Delivery & itération", tx(COL.del)]];
@@ -609,10 +666,10 @@ try {
   };
   grist.onRecords(function (records) {
     ALL = records || [];
-    if (META_STATE === 2) { refresh(); return; }
+    if (META_STATE === 2) { loadEtudes().then(refresh); return; }
     if (META_STATE === 1) { return; }
     META_STATE = 1;
-    Promise.all([loadChoices(), loadDepts()]).then(function () { META_STATE = 2; refresh(); });
+    Promise.all([loadChoices(), loadDepts(), loadEtudes()]).then(function () { META_STATE = 2; refresh(); });
   }, { includeColumns: "normal", expandRefs: false });
 } catch (e) { showError("Connexion Grist impossible : " + e.message); }
 </script>
