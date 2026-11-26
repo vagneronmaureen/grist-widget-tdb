@@ -115,10 +115,10 @@ text.pt { pointer-events: none; text-anchor: middle; dominant-baseline: central;
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <script>
 // Version affichée en bas du widget : à incrémenter à chaque modification
-var VERSION = { num: "1.7.0", date: "26/11/2026" };
+var VERSION = { num: "1.8.0", date: "26/11/2026" };
 
 var COL = {
-  produit: "Produit", homolDeb: "Debut_de_validite_d_homologation", users: "", dir: "Direction_metier", statut: "Statut_actuel", dept: "Departement_new", crit: "Criticite",
+  produit: "Produit", homolDeb: "Debut_de_validite_d_homologation", users: "Volumetrie_utilisateurs_par_an", typo: "Typologie_d_application", dir: "Direction_metier", statut: "Statut_actuel", dept: "Departement_new", crit: "Criticite",
   strat: "Produit_strategique", compl: "Taux_de_completion", maj: "Date_de_derniere_mise_a_jour",
   majAlt: "Date_de_mise_a_jour", vides: "Nombre_de_champs_critiques_vides",
   homol: "Statut_d_homologation_de_securite", homolFin: "Fin_de_validite_d_homologation",
@@ -128,8 +128,6 @@ var COL = {
   vis: "Vision_strategie", usr: "Connaissance_utilisateurs_design",
   imp: "Mesure_d_impact", del: "Delivery_iteration"
 };
-// Seuils modifiables
-var CFG = { complFaible: 50 };
 
 var TABS = [["overview", "Vue d'ensemble"], ["direction", "Vue par direction métier"], ["homol", "Homologations"], ["rgaa", "RGAA"], ["maturity", "Maturité & qualité"]];
 function emptyF() { return { users: [], sdir: [], dept: [] }; }
@@ -235,8 +233,6 @@ function homolOk(r) { return homolS(r) === "homologuee"; }
 function homolEnCours(r) { return homolS(r) === "homologation en cours"; }
 function homolNonEngagee(r) { return homolS(r).indexOf("homologation non engagee") === 0; }
 function homolNA(r) { return homolS(r) === "n/a"; }
-function complBas(r) { var p = pct(r, COL.compl, SC); return p !== null && p < CFG.complFaible; }
-function videsCrit(r) { return typeof r[COL.vides] === "number" && r[COL.vides] > 0; }
 function cible26(r) { return yesList(r, COL.c26); }
 function cible27(r) { return yesList(r, COL.c27); }
 function sansTraj(r) { return !cible26(r) && !cible27(r); }
@@ -338,11 +334,14 @@ function fitPies() {
     }
   }
 }
+// Valeurs "non renseignées", toujours placées en bas des graphiques
+function isNR(k) { return k === "(non renseigné)" || k === "Non renseignée"; }
 function bars(title, rows, fn, ord) {
   var counts = countBy(rows, fn), keys = [], k, i, mx = 0, tot = 0, key = TAB + "|" + title, mode = fn.multi ? "bar" : (CS[key] || "bar"), lab, h;
   for (k in counts) { if (counts.hasOwnProperty(k)) { keys.push(k); tot += counts[k]; if (counts[k] > mx) { mx = counts[k]; } } }
   keys.sort(function (a, b) {
     var ia, ib;
+    if (isNR(a) !== isNR(b)) { return isNR(a) ? 1 : -1; }
     if (ord) { ia = ord.indexOf(a); ib = ord.indexOf(b); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); }
     return counts[b] - counts[a];
   });
@@ -370,10 +369,17 @@ function avgC(rows) {
 }
 function dFin(r) { return fmtDate(toDate(r[COL.homolFin])); }
 function mkF(c) { return function (r) { return !filled(r, c); }; }
+// Volumétrie : ordre croissant de la liste de choix Grist, "N/A" placé en fin de liste
+function volOrder() {
+  var ch = (CHOICES[COL.users] || []).filter(function (x) { return norm(x) !== "n/a"; });
+  return ch.length ? ch.concat(["N/A"]) : null;
+}
 function vOverview(rows) {
-  return kpis(rows, [["Produits dans la sélection", rows.length], ["Produits actifs", isActive], ["Produits stratégiques", isStrat], ["Critiques ou essentiels", isCrit],
-    ["Complétion moyenne", avgC(rows)], ["Produits à compléter", function (r) { return complBas(r) || videsCrit(r); }, 1]]) +
-    '<div class="cols">' + bars("Produits par statut actuel", rows, tx(COL.statut)) + bars("Produits par département", rows, deptOf) + "</div>";
+  var h = kpis(rows, [["Produits dans la sélection", rows.length], ["Produits actifs", isActive], ["Complétion moyenne", avgC(rows)]]) +
+    '<div class="cols">' + bars("Produits par statut actuel", rows, tx(COL.statut)) + bars("Produits par département", rows, deptOf) +
+    bars("Produits par typologie", rows, multi(COL.typo));
+  if (COL.users !== "") { h += bars("Produits par volumétrie d'utilisateurs", rows, tx(COL.users), volOrder()); }
+  return h + "</div>";
 }
 function vDirection(rows) {
   var dirs = multi(COL.dir), seen = {}, nb = 0, i, j, ks;
