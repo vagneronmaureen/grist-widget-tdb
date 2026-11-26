@@ -29,43 +29,26 @@ h1 { font-size: 1.5rem; margin: 0 0 .25rem 0; color: var(--text-title-blue-franc
 .bar .t { flex: 1; background: #e5e5e5; height: 12px; }
 .bar .f { background: #000091; height: 12px; }
 .bar .c { width: 34px; text-align: right; font-weight: 700; }
-.tw { max-height: 360px; overflow: auto; }
-table { border-collapse: collapse; width: 100%; font-size: .85rem; }
-th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid #e5e5e5; white-space: nowrap; }
-th { position: sticky; top: 0; background: #f0f0f0; }
 .empty { color: #777; font-style: italic; }
 .note { font-size: .75rem; color: #666; margin-top: 4px; }
 .kpi[data-d], .bar[data-d] { cursor: pointer; }
 .kpi.act { outline: 2px solid #000091; background: #e3e3fd; }
 .bar.act .n { font-weight: 700; color: #000091; }
 .bar.act .f { background: #6a6af4; }
-tr.rd td { background: #ffe9e9; color: #ce0500; font-weight: 600; }
-.chk { display: inline-flex; align-items: center; gap: 6px; font-size: .85rem; cursor: pointer; }
 .pt { display: none; }
 @media print {
   @page { size: A4 landscape; margin: 10mm; }
   body { background: #fff; padding: 0; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .tabs, .filters input, .filters select, .filters button, .chk { display: none !important; }
+  .tabs, .filters input, .filters select, .filters button { display: none !important; }
   .pt { display: block; color: #666; margin-bottom: 6px; }
-  .tw { max-height: none; overflow: visible; }
-  .box, .kpi, tr { break-inside: avoid; }
+  .box, .kpi { break-inside: avoid; }
 }
 .rt { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .tools { display: flex; gap: 12px; align-items: center; }
 .lk { background: none; border: 0; padding: 0; font: inherit; font-size: .75rem; color: #666; text-decoration: underline; cursor: pointer; }
 .lk:hover { color: #000091; }
-.chk { font-size: .75rem; color: #666; gap: 4px; }
-.chk input { margin: 0; }
-.th { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-.tbtn { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; font-size: 1rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-align: left; color: #161616; }
-.chev::before { content: "\25BE"; color: #000091; }
-.tbx.closed .chev::before { content: "\25B8"; }
-.tbx.closed .th { margin-bottom: 0; }
-.tq { width: 180px; padding: 4px 8px; font-size: .8rem; }
-.sh { cursor: pointer; user-select: none; }
-.sh:hover { color: #000091; }
-@media print { .tq, .note, .tools { display: none !important; } }
+@media print { .tools { display: none !important; } }
 .ms { position: relative; }
 .ms summary { list-style: none; cursor: pointer; background: #eee; box-shadow: inset 0 -2px 0 0 #3a3a3a; border-radius: .25rem .25rem 0 0; padding: .4rem 2rem .4rem .75rem; font-size: .9rem; min-width: 170px; position: relative; }
 .ms summary::-webkit-details-marker { display: none; }
@@ -98,9 +81,6 @@ svg.psv .act { opacity: .7; }
 text.pt { pointer-events: none; text-anchor: middle; dominant-baseline: central; font-weight: 700; stroke: none; }
 .filters input[type="checkbox"] { min-width: 0; width: auto; margin: 0; flex: none; }
 .mp label { gap: 5px; }
-td.fc, th.fc { text-align: right; width: 1%; }
-.fk { color: #000091; font-size: .8rem; }
-@media print { .fc { display: none !important; } }
 .pw { position: relative; flex: 1 1 200px; max-width: 340px; min-width: 140px; }
 .pw::before { content: ""; display: block; padding-top: 100%; }
 .pw svg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
@@ -116,15 +96,13 @@ td.fc, th.fc { text-align: right; width: 1%; }
 <div class="filters" id="filters">
   <input type="text" class="fr-input" id="f-q" placeholder="Rechercher un produit">
   <details class="ms" id="ms-users"></details>
+  <details class="ms" id="ms-sdir"></details>
   <details class="ms" id="ms-dept"></details>
-  <details class="ms" id="ms-crit"></details>
-  <details class="ms" id="ms-strat"></details>
   <button type="button" class="fr-btn fr-btn--secondary fr-btn--sm" id="f-reset">Réinitialiser</button>
   <span id="drill" title="Cliquer pour retirer ce filtre"></span>
   <div class="rt">
     <span class="count" id="count">Chargement...</span>
     <div class="tools">
-      <label class="chk"><input type="checkbox" id="f-red"> Complétion &lt; 80 % en rouge</label>
       <button type="button" class="lk" id="f-csv">Export CSV</button>
       <button type="button" class="lk" id="f-pdf">Export PDF</button>
     </div>
@@ -136,10 +114,10 @@ td.fc, th.fc { text-align: right; width: 1%; }
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <script>
 // Version affichée en bas du widget : à incrémenter à chaque modification
-var VERSION = { num: "1.5.0", date: "26/11/2026" };
+var VERSION = { num: "1.6.0", date: "26/11/2026" };
 
 var COL = {
-  produit: "Produit", homolDeb: "Debut_de_validite_d_homologation", users: "", dir: "Direction_metier", statut: "Statut_actuel", dept: "Departement_SDPC", crit: "Criticite",
+  produit: "Produit", homolDeb: "Debut_de_validite_d_homologation", users: "", dir: "Direction_metier", statut: "Statut_actuel", dept: "Departement_new", crit: "Criticite",
   strat: "Produit_strategique", compl: "Taux_de_completion", maj: "Date_de_derniere_mise_a_jour",
   majAlt: "Date_de_mise_a_jour", vides: "Nombre_de_champs_critiques_vides",
   homol: "Statut_d_homologation_de_securite", homolFin: "Fin_de_validite_d_homologation",
@@ -150,10 +128,11 @@ var COL = {
   imp: "Mesure_d_impact", del: "Delivery_iteration"
 };
 // Seuils modifiables
-var CFG = { complRouge: 80, complFaible: 50, rgaaSeuil: 75, joursMaj: 180, moisHomol: 6 };
+var CFG = { complFaible: 50, rgaaSeuil: 75, joursMaj: 180, moisHomol: 6 };
 
 var TABS = [["overview", "Vue d'ensemble"], ["direction", "Vue par direction métier"], ["portfolio", "Portefeuille"], ["risks", "Risques & conformité"], ["homol", "Homologations"], ["maturity", "Maturité & qualité"]];
-var ALL = [], F = { q: "", users: [], dept: [], crit: [], strat: [] }, TAB = "overview", SC = 1, SR = 1, DR = [], DRILL = null, REDON = false;
+function emptyF() { return { q: "", users: [], sdir: [], dept: [] }; }
+var ALL = [], F = emptyF(), TAB = "overview", SC = 1, SR = 1, DR = [], DRILL = null;
 
 function showError(m) { var e = document.getElementById("err"); e.style.display = "block"; e.textContent = "Erreur : " + m; }
 window.onerror = function (m, s, l) { showError(m + " (ligne " + l + ")"); };
@@ -207,6 +186,39 @@ function majDate(r) { return toDate(r[COL.maj]) || toDate(r[COL.majAlt]); }
 function pct(r, c, sc) { return typeof r[c] === "number" ? Math.round(r[c] * sc) : null; }
 function scaleOf(c) { var i, mx = 0; for (i = 0; i < ALL.length; i++) { if (typeof ALL[i][c] === "number" && ALL[i][c] > mx) { mx = ALL[i][c]; } } return (mx > 0 && mx <= 1) ? 100 : 1; }
 
+// Département : colonne Référence vers la table des départements.
+// Grist n'envoie que l'identifiant de la ligne : le libellé "Direction/Sous-direction/Département" est lu dans la table (accès complet requis).
+var DEPT_TABLE = "Liste_des_departements_et_sous_directions", DEPTS = null, DEPT_ORD = [], SDIR_ORD = [];
+function deptInfo(r) {
+  var v = r[COL.dept];
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    return { lab: String(v.Direction_Sous_direction_Departement || ""), sd: [v.Direction, v.Sous_direction].filter(function (x) { return x; }).join("/") };
+  }
+  if (typeof v !== "number" || v <= 0) { return null; }
+  return (DEPTS && DEPTS[v]) ? DEPTS[v] : { lab: "Département n°" + v, sd: "" };
+}
+function deptOf(r) { var d = deptInfo(r); return d ? d.lab : ""; }
+function sdirOf(r) { var d = deptInfo(r); return d ? d.sd : ""; }
+function loadDepts() {
+  return Promise.resolve(grist.docApi.fetchTable(DEPT_TABLE)).then(function (t) {
+    var idx = [], o = {}, i, k, lab, sd;
+    for (i = 0; i < t.id.length; i++) { idx.push(i); }
+    if (t.manualSort) { idx.sort(function (a, b) { return t.manualSort[a] - t.manualSort[b]; }); }
+    DEPT_ORD = []; SDIR_ORD = [];
+    for (k = 0; k < idx.length; k++) {
+      i = idx[k];
+      lab = String(t.Direction_Sous_direction_Departement ? t.Direction_Sous_direction_Departement[i] || "" : "");
+      sd = [t.Direction ? t.Direction[i] : "", t.Sous_direction ? t.Sous_direction[i] : ""].filter(function (x) { return x; }).join("/");
+      o[t.id[i]] = { lab: lab, sd: sd };
+      if (lab && DEPT_ORD.indexOf(lab) === -1) { DEPT_ORD.push(lab); }
+      if (sd && SDIR_ORD.indexOf(sd) === -1) { SDIR_ORD.push(sd); }
+    }
+    DEPTS = o;
+  }).catch(function (e) {
+    if (window.console) { console.warn("Table des départements illisible :", e && e.message ? e.message : e); }
+  });
+}
+
 // Règles métier (à ajuster selon vos valeurs)
 // Actif = statut renseigné, ni décommissionné ni transféré ("En cours de transfert" reste actif)
 function isActive(r) { var s = norm(T(r, COL.statut)); return s !== "" && s.indexOf("decommission") === -1 && s.indexOf("transfere") === -1; }
@@ -246,9 +258,8 @@ function matInc(r) { var i; for (i = 0; i < DIMS.length; i++) { if (!filled(r, C
 function passF(r) {
   if (F.q !== "" && norm(T(r, COL.produit)).indexOf(norm(F.q)) === -1) { return false; }
   if (F.users.length && F.users.indexOf(usersOf(r)) === -1) { return false; }
-  if (F.dept.length && F.dept.indexOf(T(r, COL.dept)) === -1) { return false; }
-  if (F.crit.length && F.crit.indexOf(T(r, COL.crit)) === -1) { return false; }
-  if (F.strat.length && F.strat.indexOf(isStrat(r) ? "oui" : "non") === -1) { return false; }
+  if (F.sdir.length && F.sdir.indexOf(sdirOf(r)) === -1) { return false; }
+  if (F.dept.length && F.dept.indexOf(deptOf(r)) === -1) { return false; }
   if (DRILL !== null && !DRILL.fn(r)) { return false; }
   return true;
 }
@@ -358,87 +369,11 @@ function bars(title, rows, fn, ord) {
   }
   return h + "</div>";
 }
-var TB = {}, TS = {}, TBN = 0;
-function tstate(k) { if (!TS[k]) { TS[k] = { open: true, all: false, q: "", col: -1, dir: 1 }; } return TS[k]; }
-function tbl(title, rows, cols, limit) {
-  var id = "t" + (TBN++), st = tstate(TAB + "|" + title);
-  TB[id] = { title: title, rows: rows, cols: cols, limit: limit, st: st };
-  return '<div class="box tbx" id="' + id + '"><div class="th"><button type="button" class="tbtn" aria-expanded="true" data-a="open" data-t="' + id + '"><span class="chev"></span>' + esc(title) +
-    ' <span class="fr-badge fr-badge--sm fr-badge--info" id="' + id + 'n"></span></button><input type="text" class="tq fr-input" data-t="' + id + '" placeholder="Filtrer cette liste" value="' + esc(st.q) + '"></div><div id="' + id + 'b"></div></div>';
-}
-function sortKey(s) {
-  var m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (m) { return +(m[3] + m[2] + m[1]); }
-  if (/^-?\d+([.,]\d+)?\s*%?$/.test(s)) { return parseFloat(s.replace(",", ".")); }
-  return null;
-}
-function drawTable(id) {
-  var t = TB[id], st = t.st, items = [], i, j, c, q = norm(st.q), h, n, box = document.getElementById(id);
-  box.className = "box tbx" + (st.open ? "" : " closed");
-  box.getElementsByTagName("button")[0].setAttribute("aria-expanded", st.open ? "true" : "false");
-  for (i = 0; i < t.rows.length; i++) {
-    c = [];
-    for (j = 0; j < t.cols.length; j++) { c.push(String(t.cols[j][1](t.rows[i]))); }
-    if (q === "" || norm(c.join(" ")).indexOf(q) !== -1) { items.push({ r: t.rows[i], c: c }); }
-  }
-  document.getElementById(id + "n").textContent = items.length === t.rows.length ? t.rows.length : items.length + " / " + t.rows.length;
-  if (st.col >= 0) {
-    items.sort(function (a, b) {
-      var x = a.c[st.col], y = b.c[st.col], kx, ky, r;
-      if (x === y) { return 0; }
-      if (x === "") { return 1; }
-      if (y === "") { return -1; }
-      kx = sortKey(x); ky = sortKey(y);
-      r = (kx !== null && ky !== null) ? kx - ky : x.localeCompare(y, "fr");
-      return r * st.dir;
-    });
-  }
-  if (!st.open) { document.getElementById(id + "b").innerHTML = ""; return; }
-  n = (st.all || !t.limit) ? items.length : Math.min(t.limit, items.length);
-  var withFiche = t.rows.length > 0 && typeof t.rows[0].id === "number";
-  h = '<div class="tw"><table><tr>';
-  for (j = 0; j < t.cols.length; j++) {
-    h += '<th class="sh" data-a="sort" data-t="' + id + '" data-c="' + j + '">' + esc(t.cols[j][0]) + (st.col === j ? (st.dir === 1 ? " \u25B2" : " \u25BC") : "") + "</th>";
-  }
-  if (withFiche) { h += '<th class="fc"></th>'; }
-  h += "</tr>";
-  for (i = 0; i < n; i++) {
-    h += (REDON && lowC(items[i].r)) ? '<tr class="rd">' : "<tr>";
-    for (j = 0; j < t.cols.length; j++) { h += "<td>" + esc(items[i].c[j]) + "</td>"; }
-    if (withFiche) { h += '<td class="fc"><button type="button" class="lk fk" data-a="fiche" data-r="' + items[i].r.id + '" title="Ouvrir la fiche du produit dans Grist">Fiche</button></td>'; }
-    h += "</tr>";
-  }
-  if (!items.length) { h += '<tr><td colspan="' + (t.cols.length + (withFiche ? 1 : 0)) + '" class="empty">Aucun produit.</td></tr>'; }
-  h += "</table></div>";
-  if (t.limit && items.length > t.limit) {
-    h += '<div class="note"><button type="button" class="lk" data-a="all" data-t="' + id + '">' + (st.all ? "Réduire la liste" : "Afficher les " + items.length + " produits (" + t.limit + " affichés)") + "</button></div>";
-  }
-  document.getElementById(id + "b").innerHTML = h;
-}
-function openFiche(id) {
-  var fail = function (e) { showError("Ouverture de la fiche impossible : " + (e && e.message ? e.message : e)); };
-  try {
-    Promise.resolve(grist.setCursorPos({ rowId: id })).then(function () {
-      setTimeout(function () { try { Promise.resolve(grist.commandApi.run("viewAsCard")).catch(fail); } catch (e) { fail(e); } }, 150);
-    }).catch(fail);
-  } catch (e) { fail(e); }
-}
-function tableAction(n) {
-  var a = n.getAttribute("data-a"), id, st, j;
-  if (a === "fiche") { openFiche(+n.getAttribute("data-r")); return; }
-  if (a === "view") { CS[n.getAttribute("data-k")] = n.getAttribute("data-v"); render(); return; }
-  id = n.getAttribute("data-t"); st = TB[id].st;
-  if (a === "open") { st.open = !st.open; }
-  if (a === "all") { st.all = !st.all; }
-  if (a === "sort") { j = +n.getAttribute("data-c"); if (st.col === j) { st.dir = -st.dir; } else { st.col = j; st.dir = 1; } }
-  drawTable(id);
-}
+
 function sel(fn, rows) { var o = [], i; for (i = 0; i < rows.length; i++) { if (fn(rows[i])) { o.push(rows[i]); } } return o; }
 function P(r) { return T(r, COL.produit); }
-function pc(c, sc) { return function (r) { var p = pct(r, c, sc); return p === null ? "" : p + " %"; }; }
 function tx(c) { return function (r) { return T(r, c); }; }
 function lst(c) { return function (r) { return toList(r[c]).join(", "); }; }
-var C_BASE = [["Produit", P], ["Statut", tx("Statut_actuel")], ["Département", tx("Departement_SDPC")], ["Criticité", tx("Criticite")]];
 
 // Onglets
 function avgC(rows) {
@@ -451,43 +386,24 @@ function homol3(r) { var d = toDate(r[COL.homolFin]), l = new Date(); l.setMonth
 function mkS(w) { return function (r) { return statutIs(r, w); }; }
 function mkF(c) { return function (r) { return !filled(r, c); }; }
 function vOverview(rows) {
-  var al = [["Homologation à échéance (" + CFG.moisHomol + " mois)", homolBientot, [["Fin de validité", dFin]]],
-    ["Complétion faible (< " + CFG.complFaible + " %)", complBas, [["Complétion", pc(COL.compl, SC)]]],
-    ["Obsolètes ou en décommissionnement", isObso, [["Obsolescence", tx(COL.obso)]]],
-    ["Non mis à jour depuis " + CFG.joursMaj + " jours", vieux, [["Dernière MAJ", function (r) { return fmtDate(majDate(r)); }]]],
-    ["Critiques non inscrits au PCA", noPca, [["PCA", tx(COL.pca)]]]], h, i;
-  h = kpis(rows, [["Produits dans la sélection", rows.length], ["Produits actifs", isActive], ["Produits stratégiques", isStrat], ["Critiques ou essentiels", isCrit],
-    ["Complétion moyenne", avgC(rows)], ["Produits à compléter", function (r) { return complBas(r) || videsCrit(r); }, 1]]);
-  h += '<div class="cols">' + bars("Produits par statut actuel", rows, tx(COL.statut)) + bars("Produits par département", rows, tx(COL.dept)) + "</div>";
-  for (i = 0; i < al.length; i++) { h += tbl("Alerte : " + al[i][0], sel(al[i][1], rows), [["Produit", P], ["Département", tx(COL.dept)]].concat(al[i][2]), 8); }
-  return h;
+  return kpis(rows, [["Produits dans la sélection", rows.length], ["Produits actifs", isActive], ["Produits stratégiques", isStrat], ["Critiques ou essentiels", isCrit],
+    ["Complétion moyenne", avgC(rows)], ["Produits à compléter", function (r) { return complBas(r) || videsCrit(r); }, 1]]) +
+    '<div class="cols">' + bars("Produits par statut actuel", rows, tx(COL.statut)) + bars("Produits par département", rows, deptOf) + "</div>";
 }
 function vPortfolio(rows) {
   var K = [["En cadrage", "cadrage"], ["En build", "build"], ["En amélioration continue", "amelioration"], ["En MCO", "mco"], ["En transfert", "transfert"], ["À décommissionner", "adecom"], ["Décommissionnés", "decom"]], it = [["Produits", rows.length]], i;
   for (i = 0; i < K.length; i++) { it.push([K[i][0], mkS(K[i][1])]); }
-  return kpis(rows, it) + '<div class="cols">' + bars("Cycle de vie", rows, tx(COL.statut)) + bars("Département", rows, tx(COL.dept)) + "</div>" +
-    tbl("Produits", rows, C_BASE.concat([["Stratégique", function (r) { return isStrat(r) ? "Oui" : "Non"; }], ["Complétion", pc(COL.compl, SC)], ["Dernière MAJ", function (r) { return fmtDate(majDate(r)); }]]), 150);
+  return kpis(rows, it) + '<div class="cols">' + bars("Cycle de vie", rows, tx(COL.statut)) + bars("Département", rows, deptOf) + "</div>";
 }
 function vRisks(rows) {
   return kpis(rows, [["Produits homologués", homolOk], ["Homologations en cours", homolEnCours], ["Échéance < 3 mois", homol3, 1], ["Échéance < " + CFG.moisHomol + " mois", homolBientot, 1],
-    ["RGAA < " + CFG.rgaaSeuil + " %", rgaaBas, 1], ["Critiques sans PCA", noPca, 1], ["Produits obsolètes", isObso, 1], ["Champs critiques manquants", videsCrit, 1]]) +
-    tbl("Produits critiques sans PCA", sel(noPca, rows), C_BASE.concat([["PCA", tx(COL.pca)]]), 50) +
-    tbl("Conformité RGAA insuffisante", sel(rgaaBas, rows), C_BASE.concat([["RGAA", pc(COL.rgaa, SR)]]), 50) +
-    tbl("Obsolètes ou à décommissionner", sel(isObso, rows), C_BASE.concat([["Obsolescence", tx(COL.obso)]]), 50);
+    ["RGAA < " + CFG.rgaaSeuil + " %", rgaaBas, 1], ["Critiques sans PCA", noPca, 1], ["Produits obsolètes", isObso, 1], ["Champs critiques manquants", videsCrit, 1]]);
 }
 function vDirection(rows) {
-  var g = {}, keys = [], list = [], i, k;
-  var dirs = multi(COL.dir), j, ks, nb = 0;
-  for (i = 0; i < rows.length; i++) { ks = keysOf(dirs, rows[i]); for (j = 0; j < ks.length; j++) { k = ks[j]; if (!g[k]) { g[k] = []; keys.push(k); if (k !== "(non renseigné)") { nb++; } } g[k].push(rows[i]); } }
-  keys.sort(function (a, b) { return g[b].length - g[a].length; });
-  for (i = 0; i < keys.length; i++) { list.push({ k: keys[i], rows: g[keys[i]] }); }
-  var c = function (fn) { return function (x) { return cnt(x.rows, fn); }; };
+  var dirs = multi(COL.dir), seen = {}, nb = 0, i, j, ks;
+  for (i = 0; i < rows.length; i++) { ks = toList(rows[i][COL.dir]); for (j = 0; j < ks.length; j++) { if (!seen[ks[j]]) { seen[ks[j]] = true; nb++; } } }
   return kpis(rows, [["Produits dans la sélection", rows.length], ["Directions métier", nb], ["Produits sans direction renseignée", mkF(COL.dir), 1], ["Complétion moyenne", avgC(rows)]]) +
-    '<div class="cols">' + bars("Produits par direction métier", rows, dirs) + bars("Critiques ou essentiels par direction", sel(isCrit, rows), dirs) + "</div>" +
-    tbl("Synthèse par direction métier", list, [["Direction métier", function (x) { return x.k; }], ["Produits", function (x) { return x.rows.length; }], ["Actifs", c(isActive)],
-      ["Stratégiques", c(isStrat)], ["Critiques / essentiels", c(isCrit)], ["Complétion moy.", function (x) { return avgC(x.rows); }], ["Complétion < " + CFG.complFaible + " %", c(complBas)],
-      ["Critiques sans PCA", c(noPca)], ["Homologation < " + CFG.moisHomol + " mois", c(homolBientot)], ["Obsolètes", c(isObso)]]) +
-    tbl("Produits", rows, [["Produit", P], ["Direction métier", lst(COL.dir)], ["Département", tx(COL.dept)], ["Criticité", tx(COL.crit)], ["Complétion", pc(COL.compl, SC)]], 100);
+    '<div class="cols">' + bars("Produits par direction métier", rows, dirs) + bars("Critiques ou essentiels par direction", sel(isCrit, rows), dirs) + "</div>";
 }
 function joursRest(r) { var d = toDate(r[COL.homolFin]); return d === null ? null : Math.round((d - new Date()) / 86400000); }
 function expir(r) { var j = joursRest(r); return j !== null && j < 0; }
@@ -501,37 +417,29 @@ function tranche(r) {
   if (j <= 365) { return "6-12 mois"; }
   return "Plus de 12 mois";
 }
-function dateKo(r) { var d = toDate(r[COL.homolDeb]), f = toDate(r[COL.homolFin]); return (d !== null && f !== null && d > f) || (homolOk(r) && f === null); }
 // Critiques/essentiels à risque : non homologués ou expirés, hors statut N/A (homologation non applicable)
 function critRisque(r) { return isCrit(r) && !homolNA(r) && (!homolOk(r) || expir(r)); }
 function vHomol(rows) {
-  var st = tstate("homol|Échéances d'homologation"), hasFin = function (r) { return toDate(r[COL.homolFin]) !== null; };
-  if (!st.init) { st.init = true; st.col = 6; st.dir = 1; }
-  var base = [["Produit", P], ["Direction métier", lst(COL.dir)], ["Criticité", tx(COL.crit)], ["Statut d'homologation", tx(COL.homol)]];
-  var dates = [["Début", function (r) { return fmtDate(toDate(r[COL.homolDeb])); }], ["Fin de validité", dFin], ["Jours restants", function (r) { var j = joursRest(r); return j === null ? "" : j; }]];
-  var ano = [["Anomalie", function (r) { return homolOk(r) && toDate(r[COL.homolFin]) === null ? "Homologué sans date de fin" : "Début postérieur à la fin"; }]];
+  var hasFin = function (r) { return toDate(r[COL.homolFin]) !== null; };
   return kpis(rows, [["Produits homologués", homolOk], ["Homologations en cours", homolEnCours], ["Homologations non engagées", homolNonEngagee, 1], ["Homologations expirées", expir, 1], ["Échéance sous 3 mois", ech(90), 1],
     ["Échéance sous 6 mois", ech(180), 1], ["Sans date de fin", function (r) { return !hasFin(r); }, 1], ["Statut non renseigné", mkF(COL.homol), 1], ["Critiques non homologués ou expirés", critRisque, 1]]) +
     '<div class="cols">' + bars("Statut d'homologation", rows, tx(COL.homol)) +
     bars("Échéances par tranche de validité", rows, tranche, ["Expirée", "0-3 mois", "3-6 mois", "6-12 mois", "Plus de 12 mois", "Non renseignée"]) +
-    bars("Critiques ou essentiels : statut", sel(isCrit, rows), tx(COL.homol)) + "</div>" +
-    tbl("Échéances d'homologation", sel(hasFin, rows), base.concat(dates)) +
-    tbl("Critiques ou essentiels non homologués ou expirés", sel(critRisque, rows), base.concat(dates), 50) +
-    tbl("Contrôle qualité des dates", sel(dateKo, rows), base.concat(dates, ano), 50);
+    bars("Critiques ou essentiels : statut", sel(isCrit, rows), tx(COL.homol)) + "</div>";
 }
 function vMaturity(rows) {
   var it = [], g = "", i;
   for (i = 0; i < DIMS.length; i++) { it.push(["Sans " + DIMS[i][0], mkF(COL[DIMS[i][1]]), 1]); }
   it.push(["Maturité incomplète", matInc, 1]); it.push(["Complétion moyenne", avgC(rows)]);
   for (i = 0; i < DIMS.length; i++) { g += bars(DIMS[i][0], rows, tx(COL[DIMS[i][1]])); }
-  return kpis(rows, it) + '<div class="cols">' + g + "</div>" + tbl("Produits à données de maturité incomplètes", sel(matInc, rows), C_BASE.concat([["Complétion", pc(COL.compl, SC)]]), 100);
+  return kpis(rows, it) + '<div class="cols">' + g + "</div>";
 }
 var VIEWS = { overview: vOverview, portfolio: vPortfolio, risks: vRisks, homol: vHomol, direction: vDirection, maturity: vMaturity };
 
 function tabLabel(k) { var i; for (i = 0; i < TABS.length; i++) { if (TABS[i][0] === k) { return TABS[i][1]; } } return ""; }
 function render() {
   try {
-    DR = []; TB = {}; TBN = 0;
+    DR = [];
     var rows = sel(passF, ALL), i, h = "";
     for (i = 0; i < TABS.length; i++) { h += '<button type="button" class="tb' + (TABS[i][0] === TAB ? " on" : "") + '" data-t="' + TABS[i][0] + '">' + esc(TABS[i][1]) + "</button>"; }
     document.getElementById("tabs").innerHTML = h;
@@ -539,17 +447,15 @@ function render() {
     document.getElementById("drill").innerHTML = DRILL ? '<span class="fr-badge fr-badge--sm fr-badge--blue-ecume">' + esc(DRILL.label) + " \u2715</span>" : "";
     document.getElementById("ptitle").textContent = "Onglet : " + tabLabel(TAB) + " - " + fmtDate(new Date());
     document.getElementById("main").innerHTML = VIEWS[TAB](rows);
-    for (i in TB) { if (TB.hasOwnProperty(i)) { drawTable(i); } }
     fitPies();
     setTimeout(fitPies, 60);
   } catch (e) { showError(e.message); }
 }
 
-function lowC(r) { var p = pct(r, COL.compl, SC); return p !== null && p < CFG.complRouge; }
 function csvCell(v) { v = String(v === null || v === undefined ? "" : v); return /[";\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
 function exportCsv() {
   var rows = sel(passF, ALL), i, j, l = [], line,
-    cols = [["Produit", P], ["Statut actuel", tx(COL.statut)], ["Département", tx(COL.dept)], ["Criticité", tx(COL.crit)],
+    cols = [["Produit", P], ["Statut actuel", tx(COL.statut)], ["Sous-direction", sdirOf], ["Département", deptOf], ["Criticité", tx(COL.crit)],
       ["Stratégique", function (r) { return isStrat(r) ? "Oui" : "Non"; }], ["Complétion (%)", function (r) { var p = pct(r, COL.compl, SC); return p === null ? "" : p; }],
       ["Dernière mise à jour", function (r) { return fmtDate(majDate(r)); }], ["Homologation", tx(COL.homol)], ["Fin d'homologation", dFin],
       ["RGAA (%)", function (r) { var p = pct(r, COL.rgaa, SR); return p === null ? "" : p; }], ["PCA", tx(COL.pca)], ["Obsolescence", tx(COL.obso)],
@@ -596,9 +502,10 @@ function uniq(c) {
   return sortChoices(c, o);
 }
 // Ordre des options défini dans la colonne Choice / Choice List de Grist (lu dans les métadonnées du document)
-var CHOICES = {}, CHOICES_OK = false, CHOICES_LOADING = false;
-function sortChoices(c, vals) {
-  var ch = CHOICES[c];
+var CHOICES = {};
+function sortChoices(c, vals) { return sortByList(CHOICES[c], vals); }
+// Trie selon l'ordre d'une liste de référence ; valeurs absentes à la fin, par ordre alphabétique
+function sortByList(ch, vals) {
   return vals.sort(function (a, b) {
     var ia = ch ? ch.indexOf(a) : -1, ib = ch ? ch.indexOf(b) : -1;
     if (ia !== ib) { return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib); }
@@ -617,17 +524,23 @@ function loadChoices() {
       try { o = JSON.parse(cl.widgetOptions[i]); } catch (e) { o = null; }
       if (o && Array.isArray(o.choices)) { CHOICES[cl.colId[i]] = o.choices; }
     }
-    CHOICES_OK = true;
   }).catch(function (e) {
     // Sans "accès complet au document", les métadonnées ne sont pas lisibles : on garde l'ordre alphabétique
     if (window.console) { console.warn("Ordre des choix Grist indisponible :", e && e.message ? e.message : e); }
   });
 }
-var MS = [["users", "Utilisateurs"], ["dept", "Départements"], ["crit", "Criticités"], ["strat", "Stratégique"]];
+var MS = [["users", "Utilisateurs"], ["sdir", "Sous-directions"], ["dept", "Départements"]];
+function distinct(fn, keep) {
+  var s = {}, o = [], i, t;
+  for (i = 0; i < ALL.length; i++) { if (keep && !keep(ALL[i])) { continue; } t = fn(ALL[i]); if (t !== "" && !s[t]) { s[t] = true; o.push(t); } }
+  return o;
+}
 function msVals(k) {
   var v = [], i, u;
-  if (k === "strat") { return [["oui", "Stratégiques"], ["non", "Non stratégiques"]]; }
-  u = k === "users" ? (COL.users === "" ? [] : usersVals()) : uniq(COL[k]);
+  if (k === "sdir") { u = sortByList(SDIR_ORD, distinct(sdirOf)); }
+  // Départements limités aux sous-directions choisies
+  else if (k === "dept") { u = sortByList(DEPT_ORD, distinct(deptOf, F.sdir.length ? function (r) { return F.sdir.indexOf(sdirOf(r)) !== -1; } : null)); }
+  else { u = COL.users === "" ? [] : usersVals(); }
   for (i = 0; i < u.length; i++) { v.push([u[i], u[i]]); }
   return v;
 }
@@ -639,16 +552,13 @@ function updateMs() {
     el.textContent = (k === "users" && COL.users === "") ? "Utilisateurs : colonne introuvable" : MS[i][1] + (F[k].length ? " (" + F[k].length + ")" : " : tous");
   }
 }
-function buildSelects() {
-  var i, j, k, v, h;
-  for (i = 0; i < MS.length; i++) {
-    k = MS[i][0]; v = msVals(k); h = "<summary></summary><div class=\"mp\">";
-    for (j = 0; j < v.length; j++) { h += '<label><input type="checkbox" data-f="' + k + '" value="' + esc(v[j][0]) + '"' + (F[k].indexOf(v[j][0]) !== -1 ? " checked" : "") + "> " + esc(v[j][1]) + "</label>"; }
-    if (!v.length) { h += '<span class="empty">Aucune valeur</span>'; }
-    document.getElementById("ms-" + k).innerHTML = h + "</div>";
-  }
-  updateMs();
+function buildOne(k) {
+  var v = msVals(k), j, h = "<summary></summary><div class=\"mp\">";
+  for (j = 0; j < v.length; j++) { h += '<label><input type="checkbox" data-f="' + k + '" value="' + esc(v[j][0]) + '"' + (F[k].indexOf(v[j][0]) !== -1 ? " checked" : "") + "> " + esc(v[j][1]) + "</label>"; }
+  if (!v.length) { h += '<span class="empty">Aucune valeur</span>'; }
+  document.getElementById("ms-" + k).innerHTML = h + "</div>";
 }
+function buildSelects() { var i; for (i = 0; i < MS.length; i++) { buildOne(MS[i][0]); } updateMs(); }
 function bind() {
   document.getElementById("f-q").oninput = function () { F.q = this.value; render(); };
   document.getElementById("filters").onchange = function (e) {
@@ -656,18 +566,25 @@ function bind() {
     if (!k) { return; }
     bx = document.getElementById("ms-" + k).getElementsByTagName("input");
     for (i = 0; i < bx.length; i++) { if (bx[i].checked) { a.push(bx[i].value); } }
-    F[k] = a; updateMs(); render();
+    F[k] = a;
+    if (k === "sdir") {
+      // On retire les départements qui ne sont plus dans les sous-directions choisies
+      var ok = msVals("dept").map(function (x) { return x[0]; });
+      F.dept = F.dept.filter(function (d) { return ok.indexOf(d) !== -1; });
+      buildOne("dept");
+    }
+    updateMs(); render();
   };
   window.onresize = function () { fitPies(); };
   document.onclick = function (e) {
     var d = document.getElementsByClassName("ms"), i;
     for (i = 0; i < d.length; i++) { if (!d[i].contains(e.target)) { d[i].removeAttribute("open"); } }
   };
-  document.getElementById("f-reset").onclick = function () { DRILL = null; F = { q: "", users: [], dept: [], crit: [], strat: [] }; document.getElementById("f-q").value = ""; buildSelects(); render(); };
+  document.getElementById("f-reset").onclick = function () { DRILL = null; F = emptyF(); document.getElementById("f-q").value = ""; buildSelects(); render(); };
   document.getElementById("main").onclick = function (e) {
     var n = e.target, d;
     while (n && n !== this) {
-      if (n.getAttribute && n.getAttribute("data-a")) { tableAction(n); return; }
+      if (n.getAttribute && n.getAttribute("data-a") === "view") { CS[n.getAttribute("data-k")] = n.getAttribute("data-v"); render(); return; }
       if (n.getAttribute && n.getAttribute("data-d") !== null) {
         d = DR[+n.getAttribute("data-d")];
         if (d) { DRILL = (DRILL !== null && DRILL.label === d.label) ? null : d; render(); }
@@ -676,12 +593,7 @@ function bind() {
       n = n.parentNode;
     }
   };
-  document.getElementById("main").oninput = function (e) {
-    var n = e.target, id = n.getAttribute("data-t");
-    if (id && TB[id] && String(n.className).indexOf("tq") !== -1) { TB[id].st.q = n.value; drawTable(id); }
-  };
   document.getElementById("drill").onclick = function () { DRILL = null; render(); };
-  document.getElementById("f-red").onchange = function () { REDON = this.checked; render(); };
   document.getElementById("f-csv").onclick = function () { try { exportCsv(); } catch (e) { showError("Export CSV : " + e.message); } };
   document.getElementById("f-pdf").onclick = function () { try { window.print(); } catch (e) { showError("Export PDF : " + e.message); } };
   document.getElementById("tabs").onclick = function (e) { var t = e.target.getAttribute("data-t"); if (t) { TAB = t; render(); } };
@@ -690,10 +602,18 @@ function bind() {
 try {
   document.getElementById("ver").textContent = "Version " + VERSION.num + " du " + VERSION.date;
   bind();
-  grist.ready();
+  // Accès complet nécessaire : ordre des choix et table des départements
+  grist.ready({ requiredAccess: "full" });
+  var META_STATE = 0; // 0 = à charger, 1 = en cours, 2 = chargé (ou échec)
+  var refresh = function () {
+    try { SC = scaleOf(COL.compl); SR = scaleOf(COL.rgaa); detectUsers(); buildSelects(); render(); } catch (e) { showError(e.message); }
+  };
   grist.onRecords(function (records) {
-    try { ALL = records || []; SC = scaleOf(COL.compl); SR = scaleOf(COL.rgaa); detectUsers(); buildSelects(); render(); } catch (e) { showError(e.message); }
-    if (!CHOICES_OK && !CHOICES_LOADING) { CHOICES_LOADING = true; loadChoices().then(function () { CHOICES_LOADING = false; if (CHOICES_OK) { buildSelects(); } }); }
+    ALL = records || [];
+    if (META_STATE === 2) { refresh(); return; }
+    if (META_STATE === 1) { return; }
+    META_STATE = 1;
+    Promise.all([loadChoices(), loadDepts()]).then(function () { META_STATE = 2; refresh(); });
   });
 } catch (e) { showError("Connexion Grist impossible : " + e.message); }
 </script>
