@@ -20,7 +20,9 @@ h1 { font-size: 1.5rem; margin: 0 0 .25rem 0; color: var(--text-title-blue-franc
 .kpi.w { border-left-color: #b34000; }
 .kpi .v { font-size: 1.8rem; font-weight: 700; color: #000091; line-height: 1.2; }
 .kpi .l { font-size: .8rem; color: #666; }
-.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-bottom: 12px; }
+/* Graphiques toujours 2 par 2 (1 par ligne sur écran étroit) */
+.cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+@media (max-width: 640px) { .cols { grid-template-columns: minmax(0, 1fr); } }
 .box { background: #fff; padding: 10px 12px; min-width: 0; margin-bottom: 12px; }
 .cols .box { margin-bottom: 0; }
 .box h2 { font-size: 1rem; margin: 0 0 8px 0; }
@@ -115,7 +117,7 @@ text.pt { pointer-events: none; text-anchor: middle; dominant-baseline: central;
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <script>
 // Version affichée en bas du widget : à incrémenter à chaque modification
-var VERSION = { num: "1.8.0", date: "26/11/2026" };
+var VERSION = { num: "1.8.1", date: "26/11/2026" };
 
 var COL = {
   produit: "Produit", homolDeb: "Debut_de_validite_d_homologation", users: "Volumetrie_utilisateurs_par_an", typo: "Typologie_d_application", dir: "Direction_metier", statut: "Statut_actuel", dept: "Departement_new", crit: "Criticite",
